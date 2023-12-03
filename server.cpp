@@ -9,10 +9,12 @@
 #include <iostream>
 #include <string>
 #include <vector>
+
 using namespace std;
 
 #define BUF_SIZE 1024
-void parse_request(string request , int client_socket) {
+
+void parse_request(string request, int client_socket) {
 
 
 }
@@ -25,20 +27,18 @@ void *handle_client(void *arg) {
     int read_size;
     read_size = recv(client_socket, buffer, BUF_SIZE, 0);
     cout << "the read size is " << read_size << endl;
-   if (read_size > 0) {
-    cout << "the request is " << string(buffer) << endl;
-    string response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n";
-    response += "<!DOCTYPE html><html><head><title>Test</title></head><body><h1>Test</h1></body></html>";
-    send(client_socket, response.c_str(), response.size(), 0);
-    cout << "the response sent" << endl;
-   }
-   else {
-    printf("Error receiving\n");
-   }
+    if (read_size > 0) {
+        cout << "the request is " << string(buffer) << endl;
+        string response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n";
+        response += "<!DOCTYPE html><html><head><title>Test</title></head><body><h1>Test</h1></body></html>";
+        send(client_socket, response.c_str(), response.size(), 0);
+        cout << "the response sent" << endl;
+    } else {
+        printf("Error receiving\n");
+    }
     close(client_socket);
     pthread_exit(NULL);
 }
-
 
 
 int main() {
@@ -69,13 +69,13 @@ int main() {
     while (1) {
         struct sockaddr_in clntAddr{};
         socklen_t clntAddrLen = sizeof(clntAddr);
-        int clntSock = accept( server_socket , (struct sockaddr *) &clntAddr, &clntAddrLen);
+        int clntSock = accept(server_socket, (struct sockaddr *) &clntAddr, &clntAddrLen);
         if (clntSock < 0) {
             perror("accept() failed");
             break; // Terminate the server on accept error
         }
         pthread_t thread;
-        if(pthread_create(&thread, NULL, handle_client, (void *) &clntSock) < 0) {
+        if (pthread_create(&thread, NULL, handle_client, (void *) &clntSock) < 0) {
             printf("Error creating thread\n");
             return 1;
         }

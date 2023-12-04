@@ -42,6 +42,13 @@ string getRequest(const string& method, const string& filePath, const string& ho
     return ss.str();
 }
 
+// Generate an HTTP request string for POST method
+string postRequest(const string& method, const string& filePath, const string& hostName, in_port_t portNumber, const string& data) {
+    stringstream ss;
+    ss << method << " " << filePath << " HTTP/1.1\r\nHost: " << hostName << "\r\nContent-Length: " << data.length() << "\r\n\r\n" << data;
+    return ss.str();
+}
+
 // Send an HTTP request over a socket
 void sendRequest(int sock, const string& request) {
     ssize_t numBytes = send(sock, request.c_str(), request.length(), 0);
@@ -62,10 +69,22 @@ void receiveResponse(int sock, ofstream& outputFile) {
         } else if (numBytes == 0) {
             break;
         }
-
         buffer[numBytes] = '\0';
-        cout << buffer;
-        outputFile << buffer;
+
+        string data=string(buffer);
+        int index=data.find("\r\n\r\n");
+        string header,body;
+        if(index!=-1){
+            header=data.substr(0,index);
+            body=data.substr(index+4);
+            cout<<header<<endl;
+            cout<<body<<endl;
+        }
+        else{
+            body=data;
+            cout<<data<<endl;
+        }
+        outputFile << body;
     }
 }
 
@@ -122,15 +141,32 @@ int main(int argc, char *argv[]) {
            in_port_t portNumber = (args.size() == 4) ? atoi(args[3].c_str()) : 80;
 
            // Send the request
-           string request = getRequest(args[0], filePath, hostName, portNumber);
-           sendRequest(sock, request);
+           if (args[0] == "GET") {
+               string request = getRequest(args[0], filePath, hostName, portNumber);
+               cout<<request;
+               sendRequest(sock, request);
+           } else if (args[0] == "POST") {
+            string data;
+            string dataFilePath = args[3];
+            ifstream dataFile(dataFilePath);
+            if (!dataFile.is_open()) {
+                DieWithUserMessage("Failed to open data file", dataFilePath);
+            }
+            stringstream dataStream;
+            dataStream << dataFile.rdbuf();
+            data = dataStream.str();
+            dataFile.close();
+
+            string request = postRequest(args[0], filePath, hostName, portNumber, data);
+            sendRequest(sock, request);
+           }
 
            // Receive and save the response
            cout << "Received: ";
 
            string Path="./clientfiles";
            Path.append(filePath);
-           ofstream outputFile(filePath);
+           ofstream outputFile(Path);
            if (!outputFile.is_open()) {
                DieWithUserMessage("Failed to create file", filePath);
            }

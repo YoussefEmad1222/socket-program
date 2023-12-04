@@ -164,7 +164,7 @@ int main(int argc, char *argv[]) {
            // Receive and save the response
            cout << "Received: ";
 
-           string Path="./clientfiles";
+           string Path="./clientfiles/";
            Path.append(filePath);
            ofstream outputFile(Path);
            if (!outputFile.is_open()) {

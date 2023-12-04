@@ -1,1 +1,1 @@
-GET /file2.txt 127.0.0.1
+GET /serverfiles/file2.txt 127.0.0.1

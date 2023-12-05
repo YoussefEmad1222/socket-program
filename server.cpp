@@ -79,6 +79,7 @@ void handle_get(int client_socket, const unordered_map<string, string>& header) 
     response = "HTTP/1.1 200 OK\r\nContent-Length: " + to_string(sizeOfFile) + "\r\n" + "Content-Type: " +path.substr(path.find_last_of(".") + 1) + "\r\n\r\n";
     send(client_socket, response.c_str(), response.length(), 0);
     while (currentSize < sizeOfFile) {
+        cout<<currentSize<<endl;
         int minSize = min(static_cast<int>(BUFF_SIZE), static_cast<int>(sizeOfFile - currentSize));
         file.read(buffer, minSize);
         int size = send(client_socket, buffer, minSize, 0);

@@ -14,174 +14,219 @@
 using namespace std;
 
 // Utility function to print error messages and exit
-void DieWithUserMessage(const string& msg, const string& detail) {
+void DieWithUserMessage(const string &msg, const string &detail)
+{
     cerr << msg << ": " << detail << endl;
     exit(1);
 }
 
-void DieWithSystemMessage(const string& msg) {
+void DieWithSystemMessage(const string &msg)
+{
     perror(msg.c_str());
     exit(1);
 }
 
 // Split a string into tokens using a specified delimiter
-vector<string> split(const string& s, char delimiter) {
+vector<string> split(const string &s, char delimiter)
+{
     vector<string> tokens;
     string token;
     istringstream tokenStream(s);
-    while (getline(tokenStream, token, delimiter)) {
+    while (getline(tokenStream, token, delimiter))
+    {
         tokens.push_back(token);
     }
     return tokens;
 }
 
 // Generate an HTTP request string
-string getRequest(const string& method, const string& filePath, const string& hostName, in_port_t portNumber) {
+string getRequest(const string &method, const string &filePath, const string &hostName, in_port_t portNumber)
+{
     stringstream ss;
     ss << method << " " << filePath << " HTTP/1.1\r\nHost: " << hostName << "\r\n\r\n";
     return ss.str();
 }
 
 // Generate an HTTP request string for POST method
-string postRequest(const string& method, const string& filePath, const string& hostName, in_port_t portNumber, const string& data) {
+string postRequest(const string &method, const string &filePath, const string &hostName, in_port_t portNumber, const string &data)
+{
     stringstream ss;
-    ss << method << " " << filePath << " HTTP/1.1\r\nHost: " << hostName << "\r\nContent-Length: " << data.length() << "\r\n\r\n" << data;
+    ss << method << " " << filePath << " HTTP/1.1\r\nHost: " << hostName << "\r\nContent-Length: " << data.length() << "\r\n\r\n"
+       << data;
     return ss.str();
 }
 
 // Send an HTTP request over a socket
-void sendRequest(int sock, const string& request) {
+void sendRequest(int sock, const string &request)
+{
     ssize_t numBytes = send(sock, request.c_str(), request.length(), 0);
-    if (numBytes < 0) {
+    if (numBytes < 0)
+    {
         DieWithSystemMessage("send() failed");
-    } else if (numBytes != request.length()) {
+    }
+    else if (numBytes != request.length())
+    {
         DieWithUserMessage("send()", "sent unexpected number of bytes");
     }
 }
 
 // Receive an HTTP response from a socket and write it to a file
-void receiveResponse(int sock, ofstream& outputFile) {
+void receiveResponse(int sock, ofstream &outputFile)
+{
     char buffer[1024];
-    while (true) {
-        ssize_t numBytes = recv(sock, buffer, sizeof(buffer) - 1, 0);
-        if (numBytes < 0) {
+    string header;
+    bool headerReceived = false;
+    int contentLength = 0;
+    ssize_t numBytes = recv(sock, buffer, sizeof(buffer), 0);
+    cout << numBytes<<endl;
+    if (numBytes < 0)
+    {
+        DieWithSystemMessage("recv() failed");
+    }
+    string data(buffer, numBytes);
+    if (!headerReceived)
+    {
+        header += data;
+        size_t headerEnd = header.find("\r\n\r\n");
+        if (headerEnd != string::npos)
+        {
+            headerReceived = true;
+            string headerContent = header.substr(0, headerEnd);
+            cout << headerContent << endl;
+            size_t contentLengthStart = headerContent.find("Content-Length:");
+            if (contentLengthStart != string::npos)
+            {
+                size_t contentLengthEnd = headerContent.find("\r\n", contentLengthStart);
+                if (contentLengthEnd != string::npos)
+                {
+                    string contentLengthStr = headerContent.substr(contentLengthStart + 15, contentLengthEnd - contentLengthStart - 15);
+                    contentLength = stoi(contentLengthStr);
+                }
+            }
+        }
+    }
+    while (contentLength > 0)
+    {
+        cout << contentLength << endl;
+        int minSize = min(static_cast<int>(sizeof(buffer)), static_cast<int>(contentLength));
+        cout << minSize << endl;
+        numBytes = recv(sock, buffer, sizeof(buffer), 0);
+        if (numBytes < 0)
+        {
             DieWithSystemMessage("recv() failed");
-        } else if (numBytes == 0) {
-            break;
         }
-        buffer[numBytes] = '\0';
-
-        string data=string(buffer);
-        int index=data.find("\r\n\r\n");
-        string header,body;
-        if(index!=-1){
-            header=data.substr(0,index);
-            body=data.substr(index+4);
-            cout<<header<<endl;
-            cout<<body<<endl;
-        }
-        else{
-            body=data;
-            cout<<data<<endl;
-        }
-        outputFile << body;
+        contentLength -= numBytes;
+        outputFile.write(buffer, numBytes);
     }
 }
 
-int main(int argc, char *argv[]) {
-   // Check command-line parameters
-   if (argc != 3) {
-       DieWithUserMessage("Parameter(s)", "<server-ip> <port-number>");
-   }
+int main(int argc, char *argv[])
+{
+    // Check command-line parameters
+    if (argc != 3)
+    {
+        DieWithUserMessage("Parameter(s)", "<server-ip> <port-number>");
+    }
 
-   // Set server IP and port number
-   const char *serverIP = argv[1];
-   in_port_t portNumber = atoi(argv[2]);
+    // Set server IP and port number
+    const char *serverIP = argv[1];
+    in_port_t portNumber = atoi(argv[2]);
 
-   // Create a socket
-   int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-   if (sock < 0) {
-       DieWithSystemMessage("socket() failed");
-   }
+    // Create a socket
+    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (sock < 0)
+    {
+        DieWithSystemMessage("socket() failed");
+    }
 
-   // Configure the socket
-   sockaddr_in servAddr;
-   memset(&servAddr, 0, sizeof(servAddr));
-   servAddr.sin_family = AF_INET;
+    // Configure the socket
+    sockaddr_in servAddr;
+    memset(&servAddr, 0, sizeof(servAddr));
+    servAddr.sin_family = AF_INET;
 
-   // Convert the IP address from a string to a numeric value
-   int rtnVal = inet_pton(AF_INET, serverIP, &servAddr.sin_addr.s_addr);
-   if (rtnVal == 0) {
-       DieWithUserMessage("inet_pton() failed", "invalid address string");
-   } else if (rtnVal < 0) {
-       DieWithSystemMessage("inet_pton() failed");
-   }
+    // Convert the IP address from a string to a numeric value
+    int rtnVal = inet_pton(AF_INET, serverIP, &servAddr.sin_addr.s_addr);
+    if (rtnVal == 0)
+    {
+        DieWithUserMessage("inet_pton() failed", "invalid address string");
+    }
+    else if (rtnVal < 0)
+    {
+        DieWithSystemMessage("inet_pton() failed");
+    }
 
-   // Set the port number
-   servAddr.sin_port = htons(portNumber);
+    // Set the port number
+    servAddr.sin_port = htons(portNumber);
 
-   // Connect to the server
-   if (connect(sock, (sockaddr *) &servAddr, sizeof(servAddr)) < 0) {
-       DieWithSystemMessage("connect() failed");
-   }
+    // Connect to the server
+    if (connect(sock, (sockaddr *)&servAddr, sizeof(servAddr)) < 0)
+    {
+        DieWithSystemMessage("connect() failed");
+    }
 
-   // Open the input file
-   ifstream file("input.txt");
-   if (!file.is_open()) {
-       DieWithUserMessage("File not found", "input.txt");
-   }
+    // Open the input file
+    ifstream file("input.txt");
+    if (!file.is_open())
+    {
+        DieWithUserMessage("File not found", "input.txt");
+    }
 
-   // Process each line in the input file
-   string line;
-   while (getline(file, line)) {
-       vector<string> args = split(line, ' ');
-       if (args[0] == "GET" || args[0] == "POST") {
-           const char *filePath = args[1].c_str();
-           const char *hostName = args[2].c_str();
-           in_port_t portNumber = (args.size() == 4) ? atoi(args[3].c_str()) : 80;
+    // Process each line in the input file
+    string line;
+    while (getline(file, line))
+    {
+        vector<string> args = split(line, ' ');
+        if (args[0] == "GET" || args[0] == "POST")
+        {
+            const char *filePath = args[1].c_str();
+            const char *hostName = args[2].c_str();
+            in_port_t portNumber = (args.size() == 4) ? atoi(args[3].c_str()) : 80;
 
-           // Send the request
-           if (args[0] == "GET") {
-               string request = getRequest(args[0], filePath, hostName, portNumber);
-               cout<<request;
-               sendRequest(sock, request);
-           } else if (args[0] == "POST") {
-            string data;
-            string dataFilePath = args[3];
-            ifstream dataFile(dataFilePath);
-            if (!dataFile.is_open()) {
-                DieWithUserMessage("Failed to open data file", dataFilePath);
+            // Send the request
+            if (args[0] == "GET")
+            {
+                string request = getRequest(args[0], filePath, hostName, portNumber);
+                sendRequest(sock, request);
             }
-            stringstream dataStream;
-            dataStream << dataFile.rdbuf();
-            data = dataStream.str();
-            dataFile.close();
+            else if (args[0] == "POST")
+            {
+                string data;
+                string dataFilePath = args[3];
+                ifstream dataFile(dataFilePath);
+                if (!dataFile.is_open())
+                {
+                    DieWithUserMessage("Failed to open data file", dataFilePath);
+                }
+                stringstream dataStream;
+                dataStream << dataFile.rdbuf();
+                data = dataStream.str();
+                dataFile.close();
 
-            string request = postRequest(args[0], filePath, hostName, portNumber, data);
-            sendRequest(sock, request);
-           }
+                string request = postRequest(args[0], filePath, hostName, portNumber, data);
+                sendRequest(sock, request);
+            }
 
-           // Receive and save the response
-           cout << "Received: ";
+            string Path = "./clientfiles/";
+            Path.append(filePath);
+            ofstream outputFile(Path,ios::binary);
+            if (!outputFile.is_open())
+            {
+                DieWithUserMessage("Failed to create file", filePath);
+            }
 
-           string Path="./clientfiles/";
-           Path.append(filePath);
-           ofstream outputFile(Path);
-           if (!outputFile.is_open()) {
-               DieWithUserMessage("Failed to create file", filePath);
-           }
+            receiveResponse(sock, outputFile);
 
-           receiveResponse(sock, outputFile);
+            cout << endl;
+            outputFile.close();
+        }
+        else
+        {
+            DieWithUserMessage("Unsupported command", args[0]);
+        }
+    }
 
-           cout << endl;
-           outputFile.close();
-       } else {
-           DieWithUserMessage("Unsupported command", args[0]);
-       }
-   }
-
-   // Close the file and socket
-   file.close();
-   close(sock);
-   exit(0);
+    // Close the file and socket
+    file.close();
+    close(sock);
+    exit(0);
 }

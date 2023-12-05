@@ -78,7 +78,9 @@ void handle_get(int client_socket, const unordered_map<string, string>& header) 
     string response;
     ifstream file("."+ path, ios::binary);
     if (!file.is_open()) {
-        DieWithUserMessage("file is not found", "you tried to open a file that doesn't exist or you wrote the wrong path");
+        response = "HTTP/1.1 404 Not Found\r\n\r\n";
+        send(client_socket, response.c_str(), response.length(), 0);
+        return;
     }
     file.seekg(0, ios::end);
     size_t currentSize = 0;
@@ -134,7 +136,8 @@ void *handle_client(void *arg) {
         int recv_size = recv(client_socket, buffer, BUFF_SIZE, 0);
         cout<<"recv_size: "<<recv_size<<endl;
         if (recv_size < 0) {
-            perror("Error receiving data");
+            perror("Error receiving data or a timeout");
+            close(client_socket);
             return NULL;
         }
         if (recv_size == 0) {

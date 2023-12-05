@@ -70,15 +70,42 @@ void sendRequest(int sock, const string &request)
     }
 }
 
+void saveToFile(int contentLength, int sock, const char *filePath)
+{
+    string Path = "./clientfiles";
+    Path.append(filePath);
+    ofstream outputFile(Path, ios::binary);
+    if (!outputFile.is_open())
+    {
+        DieWithUserMessage("Failed to create file", filePath);
+    }
+    char buffer[1024];
+    ssize_t numBytes;
+    while (contentLength > 0)
+    {
+        cout << contentLength << endl;
+        int minSize = min(static_cast<int>(sizeof(buffer)), static_cast<int>(contentLength));
+        cout << minSize << endl;
+        numBytes = recv(sock, buffer, sizeof(buffer), 0);
+        if (numBytes < 0)
+        {
+            DieWithSystemMessage("recv() failed");
+        }
+        contentLength -= numBytes;
+        outputFile.write(buffer, numBytes);
+    }
+    outputFile.close();
+}
+
 // Receive an HTTP response from a socket and write it to a file
-void receiveResponse(int sock, ofstream &outputFile)
+void receiveResponse(int sock, const char *filePath)
 {
     char buffer[1024];
     string header;
     bool headerReceived = false;
     int contentLength = 0;
     ssize_t numBytes = recv(sock, buffer, sizeof(buffer), 0);
-    cout << numBytes<<endl;
+    cout << numBytes << endl;
     if (numBytes < 0)
     {
         DieWithSystemMessage("recv() failed");
@@ -105,18 +132,9 @@ void receiveResponse(int sock, ofstream &outputFile)
             }
         }
     }
-    while (contentLength > 0)
+    if (contentLength > 0)
     {
-        cout << contentLength << endl;
-        int minSize = min(static_cast<int>(sizeof(buffer)), static_cast<int>(contentLength));
-        cout << minSize << endl;
-        numBytes = recv(sock, buffer, sizeof(buffer), 0);
-        if (numBytes < 0)
-        {
-            DieWithSystemMessage("recv() failed");
-        }
-        contentLength -= numBytes;
-        outputFile.write(buffer, numBytes);
+        saveToFile(contentLength, sock,filePath);
     }
 }
 
@@ -180,7 +198,8 @@ int main(int argc, char *argv[])
         {
             const char *filePath = args[1].c_str();
             const char *hostName = args[2].c_str();
-            in_port_t portNumber = (args.size() == 4) ? atoi(args[3].c_str()) : 80;
+            // check if the port number is given
+            in_port_t portNumber = ((args.size() == 4 && args[0] == "GET")||(args.size() == 5 && args[0] == "POST")) ? atoi(args[3].c_str()) : 80;
 
             // Send the request
             if (args[0] == "GET")
@@ -191,7 +210,7 @@ int main(int argc, char *argv[])
             else if (args[0] == "POST")
             {
                 string data;
-                string dataFilePath = args[3];
+                string dataFilePath = (args.size() == 4)? args[3] : args[4];
                 ifstream dataFile(dataFilePath);
                 if (!dataFile.is_open())
                 {
@@ -206,23 +225,14 @@ int main(int argc, char *argv[])
                 sendRequest(sock, request);
             }
 
-            string Path = "./clientfiles/";
-            Path.append(filePath);
-            ofstream outputFile(Path,ios::binary);
-            if (!outputFile.is_open())
-            {
-                DieWithUserMessage("Failed to create file", filePath);
-            }
-
-            receiveResponse(sock, outputFile);
-
-            cout << endl;
-            outputFile.close();
+            receiveResponse(sock,filePath);
         }
         else
         {
             DieWithUserMessage("Unsupported command", args[0]);
         }
+
+        std::this_thread::sleep_for(std::chrono::seconds(7)); // Wait for 7 seconds
     }
 
     // Close the file and socket

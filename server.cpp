@@ -19,6 +19,7 @@ void setTimeout(int socket, int timeout) {
     tv.tv_sec = timeout / 10;
     tv.tv_usec = (timeout % 10) * 10;
     setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));   
+
 }
 
 

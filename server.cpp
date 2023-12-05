@@ -14,6 +14,14 @@ using namespace std;
 
 #define BUFF_SIZE 1024
 
+void setTimeout(int socket, int timeout) {
+    struct timeval tv;
+    tv.tv_sec = timeout / 10;
+    tv.tv_usec = (timeout % 10) * 10;
+    setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));   
+}
+
+
 unordered_map<string, string> parse_request(string request, size_t &responseBytes) {
     string delimiter = "\r\n\r\n";
     string token;
@@ -118,30 +126,29 @@ void *handle_client(void *arg) {
     struct timeval timeout;
     timeout.tv_sec = 5;
     timeout.tv_usec = 0;
-
     if (setsockopt(client_socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
         perror("Error setting timeout");
         return NULL;
     }
+    while(1){
+        char buffer[BUFF_SIZE];
+        int recv_size = recv(client_socket, buffer, BUFF_SIZE, 0);
+        if (recv_size < 0) {
+            close(client_socket);
+            return NULL;
+        }
 
-    char buffer[BUFF_SIZE];
-    int recv_size = recv(client_socket, buffer, BUFF_SIZE, 0);
-    if (recv_size < 0) {
-        close(client_socket);
-        return NULL;
-    }
-
-    size_t headerBytes = 0;
-    unordered_map<string, string> header = parse_request(buffer, headerBytes);
-    string method = header["Method"];
-
-    if (method == "GET") {
-        handle_get(client_socket, header);
-    } else if (method == "POST") {
-        handle_post(client_socket, buffer, recv_size, header, headerBytes);
-    } else {
-        string response = "HTTP/1.1 405 Method Not Allowed\r\n\r\n";
-        send(client_socket, response.c_str(), response.length(), 0);
+        size_t headerBytes = 0;
+        unordered_map<string, string> header = parse_request(buffer, headerBytes);
+        string method = header["Method"];
+        if (method == "GET") {
+            handle_get(client_socket, header);
+        } else if (method == "POST") {
+            handle_post(client_socket, buffer, recv_size, header, headerBytes);
+        } else {
+            string response = "HTTP/1.1 405 Method Not Allowed\r\n\r\n";
+            send(client_socket, response.c_str(), response.length(), 0);
+        }
     }
     close(client_socket);
     return NULL;
@@ -174,8 +181,8 @@ int main() {
     }
 
     printf("Server listening on port %d\n", PORT);
-
-    while (1) {
+    int i=0;
+    while (true) {
         struct sockaddr_in clntAddr {};
         socklen_t clntAddrLen = sizeof(clntAddr);
         int clntSock = accept(server_socket, (struct sockaddr *)&clntAddr, &clntAddrLen);
@@ -185,6 +192,11 @@ int main() {
         }
         thread t(handle_client, &clntSock);
         t.detach();
+        if(i>=50){
+            setTimeout(int(clntSock), i);
+        }
+        i++;
     }
+    close(server_socket);
     return 0;
 }

@@ -18,8 +18,7 @@ void setTimeout(int socket, int timeout) {
     struct timeval tv;
     tv.tv_sec = timeout / 10;
     tv.tv_usec = (timeout % 10) * 10;
-    setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));   
-
+    setsockopt(socket, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
 }
 
 
@@ -88,7 +87,6 @@ void handle_get(int client_socket, const unordered_map<string, string>& header) 
     response = "HTTP/1.1 200 OK\r\nContent-Length: " + to_string(sizeOfFile) + "\r\n" + "Content-Type: " +path.substr(path.find_last_of(".") + 1) + "\r\n\r\n";
     send(client_socket, response.c_str(), response.length(), 0);
     while (currentSize < sizeOfFile) {
-        cout<<currentSize<<endl;
         int minSize = min(static_cast<int>(BUFF_SIZE), static_cast<int>(sizeOfFile - currentSize));
         file.read(buffer, minSize);
         int size = send(client_socket, buffer, minSize, 0);
@@ -134,11 +132,15 @@ void *handle_client(void *arg) {
     while(1){
         char buffer[BUFF_SIZE];
         int recv_size = recv(client_socket, buffer, BUFF_SIZE, 0);
+        cout<<"recv_size: "<<recv_size<<endl;
         if (recv_size < 0) {
-            close(client_socket);
+            perror("Error receiving data");
             return NULL;
         }
-
+        if (recv_size == 0) {
+            cout << "Client disconnected" << endl;
+            break;
+        }
         size_t headerBytes = 0;
         unordered_map<string, string> header = parse_request(buffer, headerBytes);
         string method = header["Method"];
@@ -155,7 +157,7 @@ void *handle_client(void *arg) {
     return NULL;
 }
 int main() {
-    int PORT = 8090;
+    int PORT = 8080;
     int server_socket;
     struct sockaddr_in server_address;
     int address_length = sizeof(server_address);

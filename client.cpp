@@ -79,13 +79,11 @@ void saveToFile(int contentLength, int sock, const char *filePath)
     {
         DieWithUserMessage("Failed to create file", filePath);
     }
-    char buffer[1024];
+    char buffer[2048];
     ssize_t numBytes;
     while (contentLength > 0)
     {
-        cout << contentLength << endl;
         int minSize = min(static_cast<int>(sizeof(buffer)), static_cast<int>(contentLength));
-        cout << minSize << endl;
         numBytes = recv(sock, buffer, sizeof(buffer), 0);
         if (numBytes < 0)
         {
@@ -100,7 +98,7 @@ void saveToFile(int contentLength, int sock, const char *filePath)
 // Receive an HTTP response from a socket and write it to a file
 void receiveResponse(int sock, const char *filePath)
 {
-    char buffer[1024];
+    char buffer[2048];
     string header;
     bool headerReceived = false;
     int contentLength = 0;
@@ -232,7 +230,7 @@ int main(int argc, char *argv[])
             DieWithUserMessage("Unsupported command", args[0]);
         }
 
-        std::this_thread::sleep_for(std::chrono::seconds(7)); // Wait for 7 seconds
+        // std::this_thread::sleep_for(std::chrono::seconds(3)); // Wait for 3 seconds
     }
 
     // Close the file and socket

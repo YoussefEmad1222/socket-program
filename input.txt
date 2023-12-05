@@ -1,4 +1,7 @@
 POST /serverfiles/test.png 127.0.0.1 test.png
-POST /serverfiles/p1.png 127.0.0.1 p1.png
+POST /serverfiles/file2.txt 127.0.0.1 file2.txt
+POST /serverfiles/index.html 127.0.0.1 index.html
 GET /serverfiles/test.png 127.0.0.1
 GET /serverfiles/file2.txt 127.0.0.1
+GET /serverfiles/index.html 127.0.0.1
+GET /serverfiles/naggar75.txt 127.0.0.1

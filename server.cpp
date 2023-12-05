@@ -12,7 +12,7 @@
 
 using namespace std;
 
-#define BUFF_SIZE 1024
+#define BUFF_SIZE 2048
 
 void setTimeout(int socket, int timeout) {
     struct timeval tv;
@@ -93,7 +93,9 @@ void handle_get(int client_socket, const unordered_map<string, string>& header) 
         file.read(buffer, minSize);
         int size = send(client_socket, buffer, minSize, 0);
         if (size < 0) {
-            DieWithUserMessage("failed to send data", "the server failed to send data");
+            perror("Error receiving data or a timeout");
+            close(client_socket);
+            return;
         }
         currentSize += size;
     }
@@ -106,7 +108,9 @@ void handle_post(int client_socket, char* buffer, int recv_size, unordered_map<s
     string path = header.at("Path");
     ofstream f("." + path, ios::binary);
     if (!f.is_open()) {
-        DieWithUserMessage("file is not found", "you tried to open a file that doesn't exist or you wrote the wrong path");
+        response = "HTTP/1.1 404 Not Found\r\n\r\n";
+        send(client_socket, response.c_str(), response.length(), 0);
+        return;
     }
     f.write(buffer + headerBytes, recv_size - headerBytes);
     size_t totalBytes = recv_size - headerBytes;
@@ -125,7 +129,7 @@ void handle_post(int client_socket, char* buffer, int recv_size, unordered_map<s
 void *handle_client(void *arg) {
     int client_socket = *(int *)arg;
     struct timeval timeout;
-    timeout.tv_sec = 5;
+    timeout.tv_sec = 8;
     timeout.tv_usec = 0;
     if (setsockopt(client_socket, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
         perror("Error setting timeout");

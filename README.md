@@ -14,19 +14,14 @@ Dynamic Port Handling: Intelligent handling of port numbers based on the input c
 
 ## Usage
 
-1. **Clone the Repository:**
 
-    ```bash
-    git clone https://github.com/your-username/http-client.git
-    ```
-
-2. **Compile the Code:**
+1. **Compile the Code:**
 
     ```bash
     g++ http-client.cpp -o http-client
     ```
 
-3. Run the client:
+2. Run the client:
 
     ```bash
     ./http-client <server-ip> <port-number>
